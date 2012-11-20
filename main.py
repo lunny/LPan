@@ -134,11 +134,13 @@ def auth():
 import traceback
 import urllib
 
-def sync_folder(path, localpath):
+def sync_folder(path, localpath, evt):
     print('begin sync %s -> %s' % (path, localpath))
     global client
     fileinfo = client.fileinfo(path)
     for file in fileinfo['files']:
+        if evt.isSet():
+            break
         if not file['is_deleted']:
             lpath = os.path.join(localpath, file['name'])
             rpath = os.path.join(path, file['name'])
@@ -146,11 +148,8 @@ def sync_folder(path, localpath):
                 if not os.path.exists(lpath):
                     print('mkdir %s' % lpath)
                     os.mkdir(lpath)
-                sync_folder(rpath, lpath)
+                sync_folder(rpath, lpath, evt)
             else:
-                #print path
-                #print file
-                #print(fileinfo)
                 if not os.path.exists(lpath):
                     try:
                         print('begin download %s -> %s' % (rpath, lpath))
@@ -170,7 +169,7 @@ def sync_folder(path, localpath):
 
 def sync(client, localpath, evt):
     assert client.is_authed()
-    sync_folder('/', localpath)
+    sync_folder('/', localpath, evt)
     print('sync finished')
 
 
@@ -178,15 +177,34 @@ def monitor():
     pass
 
 
-def init_indicator():
+def size2str(size):
+    ksize = size / 1024
+    if ksize < 1:
+        return "%.2f K" % ksize
+    msize = ksize / 1024
+    gsize = msize / 1024
+    if gsize < 1:
+        return "%.2f M" % msize    
+    else:
+        return "%.2f G" % gsize
+
+def init_indicator(ac_info):
     # create ubuntu indicator
     ind = appindicator.Indicator("kuaipan",
         "/media/truecrypt1/projects/lpan/logo.png", appindicator.CATEGORY_APPLICATION_STATUS)
     ind.set_status(appindicator.STATUS_ACTIVE)
     ind.set_attention_icon("indicator-messages-new")
-     
+
     # create a menu
     menu = gtk.Menu()
+    namemenu = gtk.MenuItem(ac_info['user_name'])
+    namemenu.show()
+    menu.append(namemenu)
+    
+    spacemenu = gtk.MenuItem("%s/%s" % (size2str(ac_info['quota_used']), size2str(ac_info['quota_total'])))
+    spacemenu.show()
+    menu.append(spacemenu)
+    
     openmenu = gtk.MenuItem("打开快盘")
     global local_path
     openmenu.connect_object("activate", openfolder, local_path)
@@ -218,10 +236,11 @@ def main():
     if client.is_authed():
         global local_path
         local_path = "/home/lunny/kuaipan"
-
+        ac_info = client.get_account_info()
         print('is authed')
+        print(ac_info)
         window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        ind = init_indicator()
+        ind = init_indicator(ac_info)
         evt = Event()
         sync_thread = Thread(target=sync, args=(client, local_path, evt))
         sync_thread.start()
