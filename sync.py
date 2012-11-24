@@ -12,6 +12,7 @@ from monitor import monitor_black_list
 from cfg import get_cfg_dir
 
 blacklist = set()
+g_ind = None
 
 def sync_folder(client, path, localpath, evt, db, local_path):
     fileinfo = client.fileinfo(path, root="kuaipan")
@@ -101,13 +102,18 @@ stop_evt = None
 def sync(client, localpath, evt):
     assert client.is_authed()
     db = bsddb.btopen(os.path.join(get_cfg_dir(), 'hash.db'))
+    global g_ind
+    g_ind.set_icon(os.path.abspath("syncing.png"))
     sync_folder(client, '/', localpath, evt, db, localpath)
+    g_ind.set_icon(os.path.abspath("synced.png"))
     print('sync finished')
     global sync_thread
     sync_thread = None
 
 
-def start_sync(client, local_path):
+def start_sync(client, local_path, ind):
+    global g_ind
+    g_ind = ind
     global sync_thread
     if not sync_thread:
         global stop_evt

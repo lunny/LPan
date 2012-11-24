@@ -13,7 +13,7 @@ from cfg import load_config
 
 
 local_path = ""
-ind = None
+g_ind = None
 
 
 def openfolder(path):
@@ -54,7 +54,7 @@ def init_indicator(ac_info, client):
     # create ubuntu indicator
     global ind
     ind = appindicator.Indicator("kuaipan",
-        os.path.abspath("logo.png"), appindicator.CATEGORY_APPLICATION_STATUS)
+        os.path.abspath("synced.png"), appindicator.CATEGORY_APPLICATION_STATUS)
     ind.set_status(appindicator.STATUS_ACTIVE)
     ind.set_attention_icon("indicator-messages-new")
 
@@ -101,7 +101,8 @@ def init_indicator(ac_info, client):
 
 def local_start_sync(client):
     global local_path
-    start_sync(client, local_path)
+    global g_ind
+    start_sync(client, local_path, g_ind)
 
 
 def main():
@@ -122,18 +123,19 @@ def main():
 
     if client.is_authed():
         global local_path
+        global g_ind
         local_path = "/home/lunny/kuaipan"
         ac_info = client.get_account_info()
         print('is authed')
         print(ac_info)
         window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        ind = init_indicator(ac_info, client)
+        g_ind = init_indicator(ac_info, client)
 
         # start sync thread
-        start_sync(client, local_path)
+        start_sync(client, local_path, g_ind)
         
         # start monitor thread
-        start_monitor(client, local_path)
+        start_monitor(client, local_path, g_ind)
         
         # start run application
         gtk.main()

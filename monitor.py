@@ -4,6 +4,7 @@
 import pyinotify
 from threading import Thread, Event
 from api import upload_dir
+import os
 from urllib2 import HTTPError
 
 monitor_black_list = set([])
@@ -13,6 +14,7 @@ stop_evt = None
 g_client = None
 g_local_path = None
 g_move_from = None
+g_ind = None
 mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE | \
     pyinotify.IN_MODIFY | pyinotify.IN_MOVED_FROM | pyinotify.IN_MOVED_TO | \
     pyinotify.IN_MOVE_SELF | pyinotify.IN_IGNORED | pyinotify.IN_DELETE_SELF | \
@@ -29,7 +31,9 @@ class EventHandler(pyinotify.ProcessEvent):
             return
 
         global g_local_path
+        global g_ind
         rpath = event.pathname[len(g_local_path):]
+        g_ind.set_icon(os.path.abspath("syncing.png"))
         if 'IN_ISDIR' in evtmask:
             global g_client
             print('create dir %s -> %s' % (event.pathname, rpath))
@@ -37,6 +41,7 @@ class EventHandler(pyinotify.ProcessEvent):
         else:
             print('create file %s -> %s' % (event.pathname, rpath))
             g_client.upload(rpath, event.pathname)
+        g_ind.set_icon(os.path.abspath("synced.png"))
 
 
     def process_IN_DELETE(self, event):
@@ -47,6 +52,7 @@ class EventHandler(pyinotify.ProcessEvent):
 
         global g_client
         global g_local_path
+        global g_ind
         rpath = event.pathname[len(g_local_path):]
         finfo = None
         try:
@@ -60,13 +66,17 @@ class EventHandler(pyinotify.ProcessEvent):
                 if finfo['type'] != 'folder':
                     print('data type is not the same, local is dir and server is file')
                 else:
+                    g_ind.set_icon(os.path.abspath("syncing.png"))
                     g_client.delete(rpath)
+                    g_ind.set_icon(os.path.abspath("synced.png"))
             else:
                 print('delete file %s -> %s' % (event.pathname, rpath))
                 if finfo['type'] == 'folder':
                     print('data type is not the same, local is file and server is dir')
                 else:
+                    g_ind.set_icon(os.path.abspath("syncing.png"))
                     g_client.delete(rpath)
+                    g_ind.set_icon(os.path.abspath("synced.png"))
 
     def process_IN_CLOSE_WRITE(self, event):
         evtmask = event.maskname.split('|')
@@ -75,13 +85,16 @@ class EventHandler(pyinotify.ProcessEvent):
             return
 
         global g_local_path
+        global g_ind
         rpath = event.pathname[len(g_local_path):]        
         if 'IN_ISDIR' in evtmask:
             print('close write dir %s' % event.pathname)
         else:
             print('close write file %s' % event.pathname)
             print('upload file %s -> %s and overwrite' % (event.pathname, rpath))
+            g_ind.set_icon(os.path.abspath("syncing.png"))
             g_client.upload(rpath, event.pathname, root="app_folder", overwrite="True")
+            g_ind.set_icon(os.path.abspath("synced.png"))
 
     def process_IN_MODIFY(self, event):
         evtmask = event.maskname.split('|')
@@ -119,7 +132,9 @@ class EventHandler(pyinotify.ProcessEvent):
         global g_client
         global g_local_path
         global g_move_from
+        global g_ind
         rpath_to = event.pathname[len(g_local_path):]
+        g_ind.set_icon(os.path.abspath("syncing.png"))
         if 'IN_ISDIR' in evtmask:
             print('paste dir %s' % event.pathname)
             if g_move_from:
@@ -138,7 +153,7 @@ class EventHandler(pyinotify.ProcessEvent):
             else:
                 print('upload file %s -> %s' % (event.pathname, rpath_to))
                 g_client.upload(rpath_to, event.pathname)
-
+        g_ind.set_icon(os.path.abspath("synced.png"))
 
 def monitor(client, local_path, stop_evt):
     print('start monitoring %s' % local_path)
@@ -166,7 +181,9 @@ def monitor(client, local_path, stop_evt):
     print('stop monitoring %s' % local_path)
 
 
-def start_monitor(client, local_path):
+def start_monitor(client, local_path, ind):
+    global g_ind
+    g_ind = ind
     global m_thread
     if not m_thread:
         global stop_evt
