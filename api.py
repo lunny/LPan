@@ -5,6 +5,7 @@ import urllib2, urllib, cookielib
 import hmac, hashlib, base64, time, random
 from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
+import os
 
 try:
     import simplejson as json
@@ -13,7 +14,7 @@ except ImportError: # For Python >= 2.6
     
 
 def quote(_i):
-    return urllib.quote(str(_i), "")
+    return urllib.quote(str(_i), "~")
 
 
 def to_str(x):
@@ -58,7 +59,7 @@ def signature(consumer_key, consumer_secret, request_url, eparams={}, token_secr
     params = dict(params, **eparams)
 
     _base_string = build_base_string(params, request_url, http_method)
-    print(_base_string)
+    #print(_base_string)
     params["oauth_signature"] = generate_oauth_signature(_base_string, consumer_secret, token_secret)
     url = request_url+"?%s" % urllib.urlencode(params)
     return url
@@ -177,25 +178,25 @@ class Client():
     def create_folder(self, path, root="app_folder"):
         assert self.is_authed()
         url = "http://openapi.kuaipan.cn/1/fileops/create_folder"
-        return self.request(url, {'path': path, 'root': root})
+        return self.request(url, {'path': to_str(path), 'root': root})
 
 
     def delete(self, path, root="app_folder", to_recycle="True"):
         assert self.is_authed()
         url = "http://openapi.kuaipan.cn/1/fileops/delete"
-        return self.request(url, {'path': path, 'root': root, 'to_recycle': to_recycle})
+        return self.request(url, {'path': to_str(path), 'root': root, 'to_recycle': to_recycle})
 
 
     def move(self, from_path, to_path, root="app_folder"):
         assert self.is_authed()
         url = 'http://openapi.kuaipan.cn/1/fileops/move'
-        return self.request(url, {'from_path': from_path, 'to_path': to_path, 'root': root})
+        return self.request(url, {'from_path': to_str(from_path), 'to_path': to_str(to_path), 'root': root})
 
 
     def copy(self, from_path, to_path, root="app_folder"):
         assert self.is_authed()
         url = 'http://openapi.kuaipan.cn/1/fileops/copy'
-        return self.request(url, {'from_path':from_path,'to_path':to_path,'root':root})
+        return self.request(url, {'from_path': to_str(from_path), 'to_path': to_str(to_path), 'root':root})
 
 
     def upload(self,path,local_path,root="app_folder",overwrite="False",ip=None):
@@ -208,7 +209,7 @@ class Client():
         postinfo = self.request(url, args1)
 
         upload_url = postinfo['url'].rstrip('/')+'/1/fileops/upload_file'
-        args2={'overwrite':overwrite, 'root':root, 'path':path, 'oauth_token': self._oauth_token}
+        args2={'overwrite':overwrite, 'root':root, 'path': to_str(path), 'oauth_token': self._oauth_token}
         sign_url=self.signature(upload_url.encode('utf8'), args2, self._oauth_token_secret, "POST")
         return _postFile(sign_url, local_path)
 
@@ -238,3 +239,13 @@ class Client():
         param = {'type':docType,'view':view,'zip':has_zip,'path':path,'root':root, 'oauth_token': self._oauth_token}
         link = self.signature(url, param, self._oauth_token_secret)
         return self._getResponseWithCookie(link)
+
+
+def upload_dir(client, dir, local_path):
+    client.create_folder(dir[len(local_path):])
+    for fs in os.listdir(dir):
+        rfs = os.path.join(dir, fs)
+        if os.path.isfile(rfs):
+            client.upload(rfs[len(local_path):], rfs)
+        elif os.path.isdir(rfs):
+            upload_dir(client, rfs, local_path)
