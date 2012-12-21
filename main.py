@@ -9,7 +9,7 @@ import os.path
 from sync import start_sync, stop_sync
 from monitor import start_monitor, stop_monitor
 from auth import auth
-from cfg import load_config
+from cfg import load_config, get_cfg_path
 
 
 local_path = ""
@@ -56,7 +56,7 @@ def init_indicator(ac_info, client):
     ind = appindicator.Indicator("kuaipan",
         os.path.abspath("synced.png"), appindicator.CATEGORY_APPLICATION_STATUS)
     ind.set_status(appindicator.STATUS_ACTIVE)
-    ind.set_attention_icon("indicator-messages-new")
+    #ind.set_attention_icon("indicator-messages-new")
 
     # create a menu
     menu = gtk.Menu()
@@ -102,14 +102,17 @@ def init_indicator(ac_info, client):
 def local_start_sync(client):
     global local_path
     global g_ind
-    start_sync(client, local_path, g_ind)
+    start_sync(client, local_path, g_ind, False)
 
 
 def main():
     # load config
     config = load_config()
     _consumer_key = "xc2HkjEyY36EgLCp"
-    _consumer_secret = "V7irEYzo06YSjNrA"    
+    _consumer_secret = "V7irEYzo06YSjNrA"
+    
+    #_consumer_key = "xcjnojvGYYw0GDTf"
+    #_consumer_secret = "R3IdWYHeOQDzI16y"
     
     if config.has_section('client'):
         _consumer_key = config.get('client', '_consumer_key')
@@ -124,7 +127,43 @@ def main():
     if client.is_authed():
         global local_path
         global g_ind
-        local_path = "/home/lunny/kuaipan"
+        if config.has_section('sync'):
+            local_path = config.get('sync', 'local_path')
+        if not local_path:
+            home_dir = os.path.expanduser('~')
+            default_dir = os.path.join(home_dir, "kuaipan")
+            is_create_default = False
+            if not os.path.exists(default_dir):
+                is_create_default = True
+                os.mkdir(default_dir)
+            
+            dialog = gtk.FileChooserDialog(title="请选择快盘文件同步到本地存放的文件夹", parent=None,
+                action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+                buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN,gtk.RESPONSE_OK))
+            dialog.set_current_folder(default_dir)
+
+            filter = gtk.FileFilter()
+            filter.set_name("所有文件夹")
+            filter.add_pattern("*")
+            dialog.add_filter(filter)            
+                
+            response = dialog.run()
+            if response == gtk.RESPONSE_OK:
+                print dialog.get_filename(), 'selected'
+                local_path = dialog.get_filename()
+                if is_create_default and local_path != default_dir:
+                    os.rmdir(default_dir)
+                config.add_section('sync')
+                config.set('sync', 'local_path', local_path)
+                fp = open(get_cfg_path(), 'w')
+                config.write(fp)                    
+            else:
+                print 'Closed, no files selected'
+            dialog.destroy()
+
+        if not local_path:
+            return
+
         ac_info = client.get_account_info()
         print('is authed')
         print(ac_info)

@@ -10,6 +10,7 @@ import bsddb
 from api import upload_dir
 from monitor import monitor_black_list
 from cfg import get_cfg_dir
+import time
 
 blacklist = set()
 g_ind = None
@@ -60,7 +61,7 @@ def sync_folder(client, path, localpath, evt, db, local_path):
                 except:
                     print(traceback.format_exc())
         else:
-            print('%s is deleted from kuaipan' % rpath)
+            print('------%s is deleted from kuaipan------' % rpath)
             if file['type'] == 'folder':
                 if os.path.exists(lpath):
                     print('delete folder %s' % lpath)
@@ -111,14 +112,20 @@ def sync(client, localpath, evt):
     sync_thread = None
 
 
-def start_sync(client, local_path, ind):
+def time_sync(client, localpath, evt):
+    while not evt.isSet():
+        sync(client, localpath, evt)
+        time.sleep(60)
+
+
+def start_sync(client, local_path, ind, isTimes = True):
     global g_ind
     g_ind = ind
     global sync_thread
     if not sync_thread:
         global stop_evt
         stop_evt = Event()
-        sync_thread = Thread(target=sync, args=(client, local_path, stop_evt))
+        sync_thread = Thread(target= (time_sync if isTimes else sync), args=(client, local_path, stop_evt))
         sync_thread.start()
         return True
     else:
