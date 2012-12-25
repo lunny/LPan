@@ -111,9 +111,6 @@ def main():
     _consumer_key = "xc2HkjEyY36EgLCp"
     _consumer_secret = "V7irEYzo06YSjNrA"
     
-    #_consumer_key = "xcjnojvGYYw0GDTf"
-    #_consumer_secret = "R3IdWYHeOQDzI16y"
-    
     if config.has_section('client'):
         _consumer_key = config.get('client', '_consumer_key')
         _consumer_secret = config.get('client', '_consumer_secret')
