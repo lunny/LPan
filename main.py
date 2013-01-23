@@ -108,8 +108,8 @@ def local_start_sync(client):
 def main():
     # load config
     config = load_config()
-    _consumer_key = "xc2HkjEyY36EgLCp"
-    _consumer_secret = "V7irEYzo06YSjNrA"
+    _consumer_key = ""
+    _consumer_secret = ""
     
     if config.has_section('client'):
         _consumer_key = config.get('client', '_consumer_key')
